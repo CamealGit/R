@@ -1,0 +1,163 @@
+---
+title: "Analiza danych koktajli"
+author: "Kamil Cynowski"
+date: "2024-12-30"
+output:
+  slidy_presentation:
+    theme: cerulean
+    highlight: haddock
+    font_adjustment: -1
+  beamer_presentation:
+    highlight: haddock
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Załadowanie i poznanie danych
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(tidyverse)
+library(rmarkdown)
+library(knitr)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Załadowanie danych z url
+url <- "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-26/boston_cocktails.csv"
+c_data <- read_csv(url)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+# summary(c_data)
+# View(c_data)
+
+# Standaryzacja
+# c_data
+
+c_data$ingredient <- str_to_lower(c_data$ingredient)
+unique(c_data$ingredient)
+
+c_data$ingredient <- str_replace_all(c_data$ingredient, 
+                                     c("fresh lemon juice" = "lemon juice",
+                                       "juice of a lemon" = "lemon juice",
+                                       "fresh lime juice" = "lime juice",
+                                       "juice of a lime" = "lime juice",
+                                       "juice of orange" = "orange juice",
+                                       "fresh orange juice" = "orange juice",
+                                       "fresh carrot juice" = "carrot juice",
+                                       "orange juice and orange wheel" = "orange juice",
+                                       "lemon juice and 3 oz" = "lemon juice",
+                                       "juice of a blood orange" = "orange juice",
+                                       "roses lime juice" = "lime juice",
+                                       "blood orange juice" = "orange juice"
+                                       ))
+
+#Grapefruit juices
+c_data <- c_data %>%
+  mutate(ingredient = if_else(str_detect(ingredient, "grapefruit|grape"), "grapefruit juice", ingredient))
+
+# unique(c_data$ingredient)
+
+# juice_ingredients <- unique(c_data$ingredient) %>%
+#   .[str_detect(., "juice")]
+# 
+# juice_ingredients
+
+```
+
+1.  Liczba różnych koktajli w całym zbiorze:
+
+```{r}
+num_coc <- c_data %>% 
+  distinct(name) %>% 
+  nrow()
+
+```
+
+Wynik **`r num_coc`**.
+
+2.  Ile jest unikatowych składników w całym zbiorze?
+
+```{r}
+unique_ingredients <- unique(c_data$ingredient)
+num_unique_ingredients <- length(unique_ingredients)
+```
+
+Wynik **`r num_unique_ingredients`**
+
+# Ile jest koktajli w każdej kategorii?
+
+```{r}
+coc_category <- c_data %>% 
+  group_by(category) %>% 
+  summarize(num_cocktails = n())
+
+# from knitr library
+kable(coc_category)
+```
+
+# Ile składników znajduje się w każdym koktajlu? -\> Ile jest koktajli w bazie z poszczególną liczbą składników?
+
+```{r}
+
+coc_count_by_ingredient <- c_data %>% 
+  group_by(name) %>% 
+  summarise(ingredient_count = max(ingredient_number)) %>% 
+  count(ingredient_count)
+
+kable(coc_count_by_ingredient)
+
+```
+
+# Jakie są składniki koktajli jednoskładnikowych?
+
+```{r}
+coc_count_1_ingredient <- c_data %>% 
+  group_by(name) %>% 
+  summarise(ingredient_count = max(ingredient_number)) %>% 
+  filter(ingredient_count == 1)
+
+
+coc_count_1_ingredient_next <- c_data %>% 
+  filter(name %in% coc_count_1_ingredient$name) %>% 
+  select(name, ingredient)
+
+
+kable(coc_count_1_ingredient_next)
+```
+
+# Jaka jest popularność poszczególnych składników? -\> Przedstaw 20 najczęściej wykorzystywanych składników w koktajlach.
+
+```{r}
+ingredient_pupular <- c_data %>% 
+  group_by(ingredient) %>% 
+  summarise(count = n()) %>% 
+  arrange(desc(count))
+
+
+top_20_ingredients <- ingredient_pupular %>% 
+  slice_max(order_by = count, n = 20)
+  
+  
+kable(top_20_ingredients)
+
+```
+
+# Składniki z miarą 1 oz
+
+```{r}
+
+one_oz_ingredients <- c_data %>% 
+  filter(str_detect(measure, "1 oz") | measure == "1") %>% 
+  select(name, ingredient, measure) %>% 
+  distinct()
+
+
+kable(one_oz_ingredients)
+```
